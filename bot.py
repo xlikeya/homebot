@@ -1,5 +1,9 @@
 import logging
-from aiogram import Bot, Dispatcher, executor, types
+import asyncio
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters.command import Command
+from aiogram.types import BotCommand, BotCommandScopeDefault
+
 from get_weather import get_weather
 
 from configuration import Configuration
@@ -12,24 +16,39 @@ logging.basicConfig(level=logging.INFO)
 
 # Initialize bot and dispatcher
 bot = Bot(token=API_TOKEN)
-dp = Dispatcher(bot)
+dp = Dispatcher()
 
+# Set all commands
+async def set_commands():
+    commands = [BotCommand(command='start', description='Старт'),
+                BotCommand(command='weather', description='Погода'),
+                BotCommand(command='help', description='Помощь'),
+                BotCommand(command='about', description='О разработчике')]
+    await bot.set_my_commands(commands, BotCommandScopeDefault())
 
-@dp.message_handler(commands=['start', 'help'])
+# Command processing
+@dp.message(Command('start', 'help'))
 async def send_welcome(message: types.Message):
-    """
-    This handler will be called when user sends `/start` or `/help` command
-    """
-    await message.reply("/weather - Погода в Новокузнецке \n ")
+    await message.reply("/weather - Погода в Новокузнецке \n"
+                        "/help - Список доступных команд \n"
+                        "/about - Информация о разработчике \n")
 
-@dp.message_handler(commands=['weather'])
+
+@dp.message(Command('about'))
+async def send_about(message: types.Message):
+    await message.reply("Разработчик бота: Конева Вера Александровна\n"
+                        "Telegram: @vera_koneva\n")
+
+@dp.message(Command('weather'))
 async def send_weather(message: types.Message):
-
     await message.reply(get_weather())
 
-@dp.message_handler()
-async def echo_message(msg: types.Message):
-    await bot.send_message(msg.from_user.id, "Your text: " + msg.text)
+
+# Starting the polling process for new updates
+async def main():
+    await bot.delete_webhook(drop_pending_updates=True)
+    await dp.start_polling(bot)
+    await set_commands()
 
 if __name__ == '__main__':
-    executor.start_polling(dp, skip_updates=True)
+    asyncio.run(main())
